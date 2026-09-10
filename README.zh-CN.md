@@ -30,6 +30,16 @@ AI 可以很快生成 Mermaid，但汇报时经常还要在 PPT 里改文字、�
 
 [更新记录](CHANGELOG.md) · [调研与迭代规则](docs/ITERATION_POLICY.md)
 
+## v0.4.0：适配幻灯片布局
+
+**Fit to slide** 会以紧凑间距比较四种全局方向，选择估算节点字号更大的布局。也可以手动选择方向与间距。默认仍为 **From source + Comfortable**，保持原有输出。
+
+分组示例的估算节点字号从 9.22pt 提升到 16.00pt，可运行 `node scripts/readability-report.mjs` 复现。这个结果不代表所有图都能变得易读；分组标题和边标签更小，字体替换和 PowerPoint 自动适配也会影响实际显示。复杂图仍可能需要缩短标签或拆分。
+
+原始 Mermaid 和 `.mmd` 导出不被改写。布局设置会作用于 SVG/PPT，并写入 PPT 备注。新项目文件采用 v2 格式保存方向与间距；旧 v1 文件和草稿仍可打开，默认迁移到原始方向与舒适间距。旧版应用可能无法读取 v2 文件。
+
+[下载优化后的项目文件](examples/grouped-fit.mts.json) · [下载对应 PPT](examples/grouped-fit.pptx)。
+
 ## v0.3.0：架构图分组
 
 新增 **Grouped architecture** 示例：[下载可编辑 PPT](examples/grouped.pptx)。使用 `subgraph id [分组标题]` 与 `end` 包围节点，支持最多 15 个分组、四层嵌套和跨组节点连线。所有分组继承全图方向；请先在所属分组声明节点，再通过节点 ID 引用。

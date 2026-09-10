@@ -38,7 +38,7 @@ test("invalid, oversized and future project inputs fail explicitly", () => {
   for (const text of [
     "{broken",
     "[]",
-    JSON.stringify({ ...project, version: 2 }),
+    JSON.stringify({ ...project, version: 3 }),
     JSON.stringify({ ...project, theme: "__proto__" }),
     JSON.stringify({ ...project, theme: ["mint"] }),
     JSON.stringify({ ...project, title: 123 }),

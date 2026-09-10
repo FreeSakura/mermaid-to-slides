@@ -4,6 +4,8 @@ Diagrams are processed in the browser. There is no application backend, telemetr
 
 Local draft storage is opt-in and uses the `mermaid-to-slides:draft:v1` localStorage key. Clearing the saved draft removes only that key. Drafts are scoped to a site origin/browser profile; people sharing the profile or code running on that origin may access them. Project JSON files contain source text and should be shared with the same care as the original diagram. They are validated as data and never evaluated as code. A corrupt, future-version or unreadable project must not replace the current editor.
 
+The legacy storage key is retained for compatibility; payloads now use project schema v2, which also includes presentation-layout settings. Existing v1 payloads migrate without deleting source. Unsupported direction/spacing values are rejected before replacing editor state.
+
 The development server binds to loopback by default. Deploy the built `dist/` assets, not the development server.
 
 ## Dependency audit note (2026-09-10)

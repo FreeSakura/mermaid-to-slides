@@ -1,4 +1,4 @@
-import { themes } from "./diagram.js";
+import { themes, normalizeLayout } from "./diagram.js";
 
 export const PROJECT_FORMAT = "mermaid-to-slides";
 export const DRAFT_KEY = "mermaid-to-slides:draft:v1";
@@ -7,9 +7,9 @@ export const MAX_FILE_BYTES = 256 * 1024;
 export function validateProject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw Error("This is not a Mermaid to Slides project file.");
-  if (value.format !== PROJECT_FORMAT || value.version !== 1)
+  if (value.format !== PROJECT_FORMAT || ![1, 2].includes(value.version))
     throw Error(
-      "Unsupported project format or version. Open a version 1 Mermaid to Slides project.",
+      "Unsupported project format or version. Open a version 1 or 2 Mermaid to Slides project.",
     );
   if (typeof value.source !== "string" || value.source.length > 30000)
     throw Error("Project source must be text under 30,000 characters.");
@@ -17,22 +17,36 @@ export function validateProject(value) {
     throw Error("Project title must be text under 90 characters.");
   if (typeof value.theme !== "string" || !Object.hasOwn(themes, value.theme))
     throw Error("This project uses an unsupported theme.");
+  if (
+    value.version === 2 &&
+    (!value.layout ||
+      typeof value.layout.direction !== "string" ||
+      typeof value.layout.spacing !== "string")
+  )
+    throw Error(
+      "Version 2 projects must contain direction and spacing settings.",
+    );
+  const layout = normalizeLayout(
+    value.version === 1 ? undefined : value.layout,
+  );
   return {
     format: PROJECT_FORMAT,
-    version: 1,
+    version: 2,
     source: value.source,
     title: value.title,
     theme: value.theme,
+    layout,
   };
 }
 
-export function createProject({ source, title, theme }) {
+export function createProject({ source, title, theme, layout }) {
   return validateProject({
     format: PROJECT_FORMAT,
-    version: 1,
+    version: 2,
     source,
     title,
     theme,
+    layout: normalizeLayout(layout),
   });
 }
 

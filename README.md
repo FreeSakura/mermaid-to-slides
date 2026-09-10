@@ -32,6 +32,18 @@ Local drafts stay in that browser and site origin, are visible to others using t
 
 [Changelog](CHANGELOG.md) · [Research and iteration policy](docs/ITERATION_POLICY.md)
 
+## Fit diagrams to a slide (v0.4.0)
+
+![Fitted grouped architecture, rendered in PowerPoint](docs/slide-fit-preview.png)
+
+Click **Fit to slide** to compare global directions using compact spacing. Or choose a slide direction and comfortable/compact spacing yourself. **From source** with **Comfortable** remains the default and preserves the original output.
+
+Best fit compares four directions for the chosen spacing and chooses the largest nominal node-label size, preferring the source direction on ties. The grouped example changes from **9.22 pt to 16.00 pt**; reproduce the comparison with `node scripts/readability-report.mjs`. This is a bounded layout heuristic, not a readability guarantee or an optimal-layout solver. Group titles and edge labels are smaller than node labels, and PowerPoint font substitution/autofit can affect actual text. Large diagrams may still require shorter labels or separate slides.
+
+The source editor and `.mmd` exports retain the original Mermaid. SVG/PPT export uses the selected presentation layout; source and settings are saved in PPT notes. Use a project file to retain layout settings across devices. New schema-v2 files include `layout.direction` and `layout.spacing`; existing v1 files/drafts are accepted with source/comfortable defaults. Older app releases may reject v2 files.
+
+[Try the saved fitted project](examples/grouped-fit.mts.json) · [Download its PPTX](examples/grouped-fit.pptx). Generate these files with `node scripts/generate-layout-examples.mjs`.
+
 ## Group architecture diagrams (v0.3.0)
 
 ![Grouped architecture exported and rendered in PowerPoint](docs/grouped-preview.png)

@@ -1,6 +1,6 @@
 {
   "name": "mermaid-to-slides",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Turn Mermaid flowcharts into editable PowerPoint shapes, entirely in your browser.",

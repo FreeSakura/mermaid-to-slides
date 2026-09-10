@@ -6,6 +6,7 @@ import {
   layoutDiagram,
   diagramSvg,
   slideMetrics,
+  planDiagram,
 } from "./diagram.js";
 
 import {
@@ -37,7 +38,7 @@ document.querySelector("#app").innerHTML = `
   .map(([k, t]) => `<option value="${k}">${t.name}</option>`)
   .join(
     "",
-  )}</select></label></div><div class="stage"><div class="slide" id="slide"><div class="slide-title" id="slide-title"></div><div class="slide-rule"></div><div class="diagram-area" id="diagram"></div></div><div class="empty" id="empty" hidden>Fix the source to preview your diagram.</div></div><div class="preview-footer"><span id="stats" aria-live="polite"></span><span class="native-badge">Editable shapes & lines</span></div><div id="notice" role="status" aria-live="polite"></div><div class="export-row"><button id="svg-export" class="secondary">Save SVG</button><button id="export" class="primary">Download PowerPoint <span aria-hidden="true">↓</span></button></div><p class="export-note">Edit nodes and text together. Lines are editable freeforms; rerouting is manual. Source is saved in slide notes.</p><p id="group-note" class="export-note" hidden>Group frames are editable boundaries. Moving a frame does not move its contents.</p></section></div>
+  )}</select></label></div><div class="layout-controls"><label>Slide direction<select id="layout-direction"><option value="source">From source</option><option value="auto">Best fit</option><option value="LR">Left → right</option><option value="TB">Top → bottom</option><option value="RL">Right → left</option><option value="BT">Bottom → top</option></select></label><label>Spacing<select id="layout-spacing"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><button id="fit-slide" class="secondary">Fit to slide</button></div><p id="layout-summary" class="layout-summary" role="status"></p><p class="layout-hint">Layout changes affect the slide and SVG. Your Mermaid source stays unchanged.</p><div class="stage"><div class="slide" id="slide"><div class="slide-title" id="slide-title"></div><div class="slide-rule"></div><div class="diagram-area" id="diagram"></div></div><div class="empty" id="empty" hidden>Fix the source to preview your diagram.</div></div><div class="preview-footer"><span id="stats" aria-live="polite"></span><span class="native-badge">Editable shapes & lines</span></div><div id="notice" role="status" aria-live="polite"></div><div class="export-row"><button id="svg-export" class="secondary">Save SVG</button><button id="export" class="primary">Download PowerPoint <span aria-hidden="true">↓</span></button></div><p class="export-note">Edit nodes and text together. Lines are editable freeforms; rerouting is manual. Source is saved in slide notes.</p><p id="group-note" class="export-note" hidden>Group frames are editable boundaries. Moving a frame does not move its contents.</p></section></div>
 <footer><span>Built for the last mile between an idea and a slide.</span><span>Open source · MIT license</span></footer></main>`;
 const $ = (s) => document.querySelector(s),
   source = $("#source"),
@@ -64,7 +65,7 @@ function render() {
   $("#slide").style.setProperty("--ink", `#${t.ink}`);
   $("#slide").style.setProperty("--accent", `#${t.accent}`);
   try {
-    current = layoutDiagram(parseFlowchart(source.value));
+    current = planDiagram(source.value, layoutSettings());
     $("#diagram").innerHTML = diagramSvg(current, theme.value);
     $("#group-note").hidden = !current.groups.length;
     $("#slide").hidden = false;
@@ -74,14 +75,26 @@ function render() {
     $("#stats").textContent =
       `${current.nodes.length} nodes · ${current.edges.length} connections${current.groups.length ? ` · ${current.groups.length} groups` : ""}`;
     const size = slideMetrics(current).fontSize;
+    const smallest =
+      size *
+      Math.min(
+        1,
+        current.groups.length ? 16 / 18 : 1,
+        current.edges.some((edge) => edge.label) ? 15 / 18 : 1,
+      );
+    $("#layout-summary").textContent =
+      `${current.direction} · node labels ≈ ${size.toFixed(1)} pt${current.layoutOptions.direction === "auto" ? " · best fit of 4 directions" : ""}`;
     notify(
-      size < 12
-        ? `This diagram is dense (about ${size.toFixed(1)} pt on the slide). Shorten labels or split it for readable presentation text.`
+      smallest < 12
+        ? `Some diagram text is about ${smallest.toFixed(1)} pt. Try Fit to slide, shorten labels or split the diagram. PowerPoint may render text differently.`
         : "",
-      size < 12 ? "warning" : "",
+      smallest < 12 ? "warning" : "",
     );
   } catch (err) {
     current = null;
+    $("#group-note").hidden = true;
+    $("#layout-summary").textContent =
+      "Fix the source to compare slide layouts.";
     $("#slide").hidden = true;
     $("#empty").hidden = false;
     $("#export").disabled = true;
@@ -90,13 +103,20 @@ function render() {
     notify(err.message, "error");
   }
 }
+function layoutSettings() {
+  return {
+    direction: $("#layout-direction").value,
+    spacing: $("#layout-spacing").value,
+  };
+}
 function snapshot() {
   return {
     format: "mermaid-to-slides",
-    version: 1,
+    version: 2,
     source: source.value,
     title: title.value,
     theme: theme.value,
+    layout: layoutSettings(),
   };
 }
 function draftStatus(text) {
@@ -128,6 +148,8 @@ function applyProject(project, rememberPrevious = true) {
   source.value = project.source;
   title.value = project.title;
   theme.value = project.theme;
+  $("#layout-direction").value = project.layout.direction;
+  $("#layout-spacing").value = project.layout.spacing;
   document
     .querySelectorAll(".example")
     .forEach((b) => b.setAttribute("aria-pressed", "false"));
@@ -136,7 +158,10 @@ function applyProject(project, rememberPrevious = true) {
 }
 function load(id, rememberPrevious = true) {
   const e = examples[id];
-  applyProject(createProject({ ...e, theme: theme.value }), rememberPrevious);
+  applyProject(
+    createProject({ ...e, theme: theme.value, layout: layoutSettings() }),
+    rememberPrevious,
+  );
   document
     .querySelectorAll(".example")
     .forEach((b) =>
@@ -242,6 +267,17 @@ $("#svg-export").addEventListener("click", () => {
       `${filename()}.svg`,
       "image/svg+xml",
     );
+});
+for (const id of ["#layout-direction", "#layout-spacing"])
+  $(id).addEventListener("change", () => {
+    edited();
+    render();
+  });
+$("#fit-slide").addEventListener("click", () => {
+  $("#layout-direction").value = "auto";
+  $("#layout-spacing").value = "compact";
+  edited();
+  render();
 });
 $("#save-source").addEventListener("click", () =>
   download(source.value, filename() + ".mmd", "text/plain;charset=utf-8"),

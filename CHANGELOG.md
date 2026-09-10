@@ -2,6 +2,20 @@
 
 Each iteration links its demand evidence, implementation PR, validation and release. Feature hypotheses are not presented as customer testimonials.
 
+## 0.4.0 — 2026-09-10
+
+Iteration 003: [tracking issue #5](https://github.com/FreeSakura/mermaid-to-slides/issues/5) · [slide readability research](docs/research/2026-09-10-slide-readability.md).
+
+- Add slide direction overrides, best-fit direction selection and comfortable/compact spacing. **Fit to slide** selects best-fit direction with compact spacing.
+- Show resolved direction and nominal node-label size. Density warnings also account for the smaller group titles and edge labels.
+- Preserve original Mermaid source; the SVG/PPT use the selected layout and PPT notes record the settings.
+- Save layout settings in project schema v2 and opt-in drafts. Existing v1 projects/drafts migrate to source-direction/comfortable defaults. Source-only files stay unchanged.
+- Add a fitted architecture example and a reproducible `scripts/readability-report.mjs` comparison.
+
+The grouped example's nominal node size increases from 9.22 pt to 16.00 pt with this heuristic. This is a measured example, not a universal readability guarantee. Dense diagrams may still need splitting; font substitution/autofit can change rendering. Defaults preserve v0.3.0 geometry.
+
+Validation: default geometry equality, graph semantics across layout candidates, best-fit scoring/ties, schema migration, draft/project/undo/import roundtrips, actual bundle PPTX export, and PowerPoint renders of source/optimized examples. See the iteration PR for CI/deployment records.
+
 ## 0.3.0 — 2026-09-10
 
 Iteration 002: [tracking issue #3](https://github.com/FreeSakura/mermaid-to-slides/issues/3) · [architecture grouping research](docs/research/2026-09-10-architecture-groups.md).
