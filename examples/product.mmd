@@ -1,0 +1,7 @@
+flowchart LR
+  A([New idea]) --> B[Build prototype]
+  B --> C{Ready to ship?}
+  C -->|Yes| D[Release]
+  C -->|Not yet| E[Collect feedback]
+  E --> B
+  D --> F([Measure impact])

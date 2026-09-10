@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a parsing, layout, or PowerPoint compatibility problem.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal Mermaid example
+      description: Remove private or customer information before posting.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, operating system and presentation application/version
+    validations:
+      required: true

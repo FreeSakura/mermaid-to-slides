@@ -1,0 +1,7 @@
+flowchart TB
+  A([Web client]) --> B[API gateway]
+  B --> C[Auth service]
+  B --> D[Application service]
+  D --> E[(Database)]
+  D -.-> F[(Cache)]
+  C --> E
