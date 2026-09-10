@@ -2,6 +2,8 @@
 
 Diagrams are processed in the browser. There is no application backend, telemetry, user account, remote model call or image upload. Do not add untrusted HTML to the preview: labels must pass through the XML escaper. The parser limits source size, labels, node count and edge count.
 
+Local draft storage is opt-in and uses the `mermaid-to-slides:draft:v1` localStorage key. Clearing the saved draft removes only that key. Drafts are scoped to a site origin/browser profile; people sharing the profile or code running on that origin may access them. Project JSON files contain source text and should be shared with the same care as the original diagram. They are validated as data and never evaluated as code. A corrupt, future-version or unreadable project must not replace the current editor.
+
 The development server binds to loopback by default. Deploy the built `dist/` assets, not the development server.
 
 ## Dependency audit note (2026-09-10)

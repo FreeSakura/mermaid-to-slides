@@ -8,6 +8,14 @@ import {
   slideMetrics,
 } from "./diagram.js";
 
+import {
+  createProject,
+  serializeProject,
+  importProjectText,
+  createDraftStore,
+  MAX_FILE_BYTES,
+} from "./project.js";
+
 const icon =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="7" height="6" rx="1.5"/><rect x="14" y="15" width="7" height="6" rx="1.5"/><path d="M6.5 9v9H14m-3-3 3 3-3 3"/></svg>';
 document.querySelector("#app").innerHTML = `
@@ -22,7 +30,7 @@ document.querySelector("#app").innerHTML = `
   )
   .join(
     "",
-  )}</div></div><div class="code-wrap"><label class="sr-only" for="source">Mermaid flowchart source</label><textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="syntax-note"></textarea></div><div class="source-bottom"><span id="source-count"></span><span>Ctrl / ⌘ + Enter to export</span></div><details><summary>Supported syntax</summary><div id="syntax-note"><p><code>flowchart</code> / <code>graph</code> with LR, RL, TB, TD or BT.</p><p><code>A[Rectangle]</code> · <code>B(Rounded)</code> · <code>C{Decision}</code> · <code>D((Circle))</code> · <code>E[(Database)]</code> · <code>F([Pill])</code></p><p>Connections: <code>--&gt;</code>, <code>--- </code>, <code>-.→</code> (write <code>-.-></code>), <code>==&gt;</code>. Labels: <code>A --&gt;|Yes| B</code>. Quoted labels, chains, comments and Chinese text are supported.</p><p>Subgraphs, custom styles, HTML, Markdown labels and other diagram types are not supported in this beta. Up to 60 nodes / 100 connections.</p></div></details></section>
+  )}</div></div><div class="file-bar"><button id="open-source" class="secondary">Open file</button><button id="save-source" class="secondary">Save .mmd</button><button id="save-project" class="secondary">Save project</button><button id="undo-replace" class="text-button" disabled>Undo replace</button><input id="file-input" type="file" accept=".mmd,.mermaid,.json" hidden aria-label="Open Mermaid source or project"></div><div class="draft-bar"><label><input id="remember-draft" type="checkbox"> Remember draft on this device</label><button id="clear-draft" class="text-button">Clear saved draft</button><span id="draft-status" role="status">Draft storage is off.</span></div><div class="code-wrap"><label class="sr-only" for="source">Mermaid flowchart source</label><textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="syntax-note"></textarea></div><div class="source-bottom"><span id="source-count"></span><span>Ctrl / ⌘ + Enter to export</span></div><details><summary>Supported syntax</summary><div id="syntax-note"><p><code>flowchart</code> / <code>graph</code> with LR, RL, TB, TD or BT.</p><p><code>A[Rectangle]</code> · <code>B(Rounded)</code> · <code>C{Decision}</code> · <code>D((Circle))</code> · <code>E[(Database)]</code> · <code>F([Pill])</code></p><p>Connections: <code>--&gt;</code>, <code>--- </code>, <code>-.→</code> (write <code>-.-></code>), <code>==&gt;</code>. Labels: <code>A --&gt;|Yes| B</code>. Quoted labels, chains, comments and Chinese text are supported.</p><p>Subgraphs, custom styles, HTML, Markdown labels and other diagram types are not supported in this beta. Up to 60 nodes / 100 connections.</p></div></details></section>
 <section class="preview-panel" aria-labelledby="preview-heading"><div class="panel-bar"><h2 id="preview-heading"><span class="step">02</span> Slide preview</h2><span class="format">16:9 · PPTX</span></div><div class="preview-options"><label>Slide title<input id="title" maxlength="90" value="From idea to release"></label><label>Theme<select id="theme">${Object.entries(
   themes,
 )
@@ -38,6 +46,11 @@ const $ = (s) => document.querySelector(s),
 let current = null,
   timer,
   exporting = false;
+let revision = 0,
+  importRequest = 0,
+  previousProject = null,
+  savingTimer;
+const drafts = createDraftStore(() => window.localStorage);
 function notify(text, kind = "") {
   const n = $("#notice");
   n.textContent = text;
@@ -76,16 +89,58 @@ function render() {
     notify(err.message, "error");
   }
 }
-function load(id) {
+function snapshot() {
+  return {
+    format: "mermaid-to-slides",
+    version: 1,
+    source: source.value,
+    title: title.value,
+    theme: theme.value,
+  };
+}
+function draftStatus(text) {
+  $("#draft-status").textContent = text;
+}
+function saveDraft() {
+  if (!$("#remember-draft").checked) return;
+  let saved = false;
+  try {
+    saved = drafts.save(snapshot());
+  } catch {}
+  draftStatus(
+    saved
+      ? "Draft saved on this device."
+      : "Could not save draft. Download a project file to keep your work.",
+  );
+}
+function edited() {
+  revision++;
+  clearTimeout(savingTimer);
+  if ($("#remember-draft").checked) savingTimer = setTimeout(saveDraft, 200);
+}
+function applyProject(project, rememberPrevious = true) {
+  clearTimeout(timer);
+  if (rememberPrevious) {
+    previousProject = snapshot();
+    $("#undo-replace").disabled = false;
+  }
+  source.value = project.source;
+  title.value = project.title;
+  theme.value = project.theme;
+  document
+    .querySelectorAll(".example")
+    .forEach((b) => b.setAttribute("aria-pressed", "false"));
+  edited();
+  render();
+}
+function load(id, rememberPrevious = true) {
   const e = examples[id];
-  source.value = e.source;
-  title.value = e.title;
+  applyProject(createProject({ ...e, theme: theme.value }), rememberPrevious);
   document
     .querySelectorAll(".example")
     .forEach((b) =>
       b.setAttribute("aria-pressed", String(b.dataset.example === id)),
     );
-  render();
 }
 function download(data, name, type) {
   const url = URL.createObjectURL(new Blob([data], { type }));
@@ -108,6 +163,7 @@ async function exportSlide() {
   exporting = true;
   $("#export").disabled = true;
   $("#export").textContent = "Preparing PowerPoint…";
+  const exportName = filename();
   const snapshot = current,
     opts = {
       title: title.value.trim() || "My flowchart",
@@ -119,7 +175,7 @@ async function exportSlide() {
     const data = await exportPptx(snapshot, opts);
     download(
       data,
-      `${filename()}.pptx`,
+      `${exportName}.pptx`,
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     );
     notify(
@@ -136,6 +192,7 @@ async function exportSlide() {
   }
 }
 source.addEventListener("input", () => {
+  edited();
   clearTimeout(timer);
   $("#export").disabled = true;
   $("#svg-export").disabled = true;
@@ -162,8 +219,14 @@ document.addEventListener("keydown", (e) => {
     exportSlide();
   }
 });
-title.addEventListener("input", render);
-theme.addEventListener("change", render);
+title.addEventListener("input", () => {
+  edited();
+  render();
+});
+theme.addEventListener("change", () => {
+  edited();
+  render();
+});
 document
   .querySelectorAll(".example")
   .forEach((b) => b.addEventListener("click", () => load(b.dataset.example)));
@@ -179,4 +242,79 @@ $("#svg-export").addEventListener("click", () => {
       "image/svg+xml",
     );
 });
-load("product");
+$("#save-source").addEventListener("click", () =>
+  download(source.value, filename() + ".mmd", "text/plain;charset=utf-8"),
+);
+$("#save-project").addEventListener("click", () => {
+  try {
+    download(
+      serializeProject(snapshot()),
+      filename() + ".mts.json",
+      "application/json",
+    );
+  } catch (e) {
+    notify(e.message, "error");
+  }
+});
+$("#open-source").addEventListener("click", () => $("#file-input").click());
+$("#file-input").addEventListener("change", async () => {
+  const input = $("#file-input"),
+    file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  const request = ++importRequest;
+  const initialRevision = revision;
+  try {
+    if (file.size > MAX_FILE_BYTES)
+      throw Error("File is too large. Choose a file under 256 KB.");
+    const text = await file.text();
+    if (request !== importRequest) return;
+    if (revision !== initialRevision)
+      throw Error(
+        "Your editor changed while the file was opening. Open the file again to replace it.",
+      );
+    const project = importProjectText(text, file.name, snapshot());
+    applyProject(project);
+  } catch (e) {
+    if (request !== importRequest) return;
+    notify(e.message, "error");
+  }
+});
+$("#undo-replace").addEventListener("click", () => {
+  if (!previousProject) return;
+  const restore = previousProject;
+  previousProject = null;
+  applyProject(restore, false);
+  $("#undo-replace").disabled = true;
+});
+$("#remember-draft").addEventListener("change", () => {
+  clearTimeout(savingTimer);
+  if ($("#remember-draft").checked) saveDraft();
+  else
+    draftStatus(
+      drafts.clear()
+        ? "Draft storage is off. Saved copy cleared."
+        : "Could not clear saved copy. Clear this site's browser data to remove it.",
+    );
+});
+$("#clear-draft").addEventListener("click", () => {
+  clearTimeout(savingTimer);
+  $("#remember-draft").checked = false;
+  draftStatus(
+    drafts.clear()
+      ? "Saved draft cleared. Editor content is unchanged."
+      : "Could not clear saved copy. Clear this site's browser data to remove it.",
+  );
+});
+window.addEventListener("pagehide", saveDraft);
+load("product", false);
+const saved = drafts.read();
+if (saved.status === "found") {
+  $("#remember-draft").checked = true;
+  applyProject(saved.project, false);
+  draftStatus("Restored your draft from this device.");
+} else if (saved.status === "error") {
+  draftStatus(
+    "Saved draft could not be read, or storage is unavailable. You can still use project files.",
+  );
+}

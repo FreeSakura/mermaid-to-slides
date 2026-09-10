@@ -263,6 +263,42 @@ textarea {
   padding: 10px 22px;
   border-top: 1px solid #314153;
 }
+.file-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.file-bar .secondary {
+  padding: 7px 10px;
+  font-size: 14px;
+}
+.draft-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 0 22px 14px;
+}
+.draft-bar label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.draft-bar input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+}
+#draft-status {
+  flex-basis: 100%;
+  color: #657386;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 details {
   padding: 15px 22px;
   font-size: 13px;

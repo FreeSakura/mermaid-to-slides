@@ -6,6 +6,7 @@ import { build } from "esbuild";
 import JSZip from "jszip";
 // Execute the actual app controller in a DOM implementation; no duplicated UI logic.
 import * as diagram from "../src/diagram.js";
+import * as project from "../src/project.js";
 test("editor examples, theme, invalid input, SVG download and recovery", async () => {
   const dom = new JSDOM('<div id="app"></div>', {
     url: "https://example.test/",
@@ -32,6 +33,7 @@ test("editor examples, theme, invalid input, SVG download and recovery", async (
     "setTimeout",
     "clearTimeout",
     ...Object.keys(diagram),
+    ...Object.keys(project),
     code,
   )(
     doc,
@@ -44,6 +46,7 @@ test("editor examples, theme, invalid input, SVG download and recovery", async (
     },
     () => {},
     ...Object.values(diagram),
+    ...Object.values(project),
   );
   assert.ok(doc.querySelector("#diagram svg"));
   assert.equal(doc.querySelector("#export").disabled, false);
