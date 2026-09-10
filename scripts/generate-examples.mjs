@@ -16,4 +16,6 @@ for (const [name, e] of Object.entries(examples)) {
     await exportPptx(d, { title: e.title, source: e.source }),
   );
 }
-console.log("Generated three Mermaid, SVG and editable PowerPoint examples.");
+console.log(
+  `Generated ${Object.keys(examples).length} Mermaid, SVG and editable PowerPoint examples.`,
+);

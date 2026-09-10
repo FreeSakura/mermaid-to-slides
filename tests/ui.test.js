@@ -73,6 +73,11 @@ test("editor examples, theme, invalid input, SVG download and recovery", async (
   doc.querySelector("#reset").click();
   assert.equal(doc.querySelector("#export").disabled, false);
   assert.equal(doc.querySelector("#slide").hidden, false);
+  doc.querySelector('[data-example="grouped"]').click();
+  assert.ok(doc.querySelector('#stats').textContent.includes('3 groups'));
+  assert.equal(doc.querySelector('#group-note').hidden, false);
+  doc.querySelector('#reset').click();
+  assert.equal(doc.querySelector('#group-note').hidden, true);
 });
 
 test("browser bundle downloads a readable PowerPoint from the real export button", async () => {

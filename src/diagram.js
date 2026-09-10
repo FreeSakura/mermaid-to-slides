@@ -40,6 +40,26 @@ export function slideMetrics(d) {
   };
 }
 export const examples = {
+  grouped: {
+    name: "Grouped architecture",
+    title: "Application boundaries",
+    source: `flowchart TB
+  subgraph client [Client applications]
+    Web[Web app]
+    Mobile[Mobile app]
+  end
+  subgraph server [应用服务]
+    API[API gateway]
+    subgraph storage [Data services]
+      DB[(Database)]
+      Cache[(Cache)]
+    end
+    API --> DB
+    API -.-> Cache
+  end
+  Web --> API
+  Mobile --> API`,
+  },
   product: {
     name: "Product release",
     title: "From idea to release",
@@ -121,7 +141,9 @@ export function parseFlowchart(source) {
       "Start with flowchart LR or flowchart TB on its own line. Only flowcharts are supported.",
     );
   const nodes = new Map(),
-    edges = [];
+    edges = [],
+    groups = new Map(),
+    groupStack = [];
   const labelText = (t) => {
     let s = t.trim();
     if (s.startsWith('"') && s.endsWith('"'))
@@ -140,16 +162,44 @@ export function parseFlowchart(source) {
     const fail = (msg) => {
       throw Error(`Line ${line}: ${msg}`);
     };
-    if (
-      /^(subgraph|end\b|style\b|classDef\b|class\b|click\b|linkStyle\b|direction\b)/.test(
-        rest,
-      )
-    )
-      fail("Subgraphs, custom styles and interactions are not supported yet.");
+    if (/^subgraph\b/.test(rest)) {
+      const group = rest.match(
+        /^subgraph\s+([A-Za-z_]\w*(?:-[A-Za-z0-9_]+)*)(?:\s*\[([\s\S]*)\])?$/,
+      );
+      if (!group) fail("Use subgraph id [Title], followed by nodes and end.");
+      const id = group[1];
+      if (groups.has(id) || nodes.has(id))
+        fail(
+          `ID ${id} is already used. Group IDs must be unique and cannot be edge endpoints.`,
+        );
+      if (groupStack.length >= 4 || groups.size >= 15)
+        fail("Use at most 15 groups and four nesting levels.");
+      groups.set(id, {
+        id,
+        label: labelText(group[2] ?? id),
+        parent: groupStack.at(-1) ?? null,
+        depth: groupStack.length,
+      });
+      groupStack.push(id);
+      continue;
+    }
+    if (rest === "end") {
+      if (!groupStack.length) fail("end has no matching subgraph.");
+      groupStack.pop();
+      continue;
+    }
+    if (/^direction\b/.test(rest))
+      fail(
+        "Local subgraph direction is not supported yet. Set the direction in the flowchart header; all groups inherit it.",
+      );
+    if (/^(end\b|style\b|classDef\b|class\b|click\b|linkStyle\b)/.test(rest))
+      fail("Custom styles and interactions are not supported yet.");
     const readNode = () => {
       const match = rest.match(/^([A-Za-z_]\w*(?:-[A-Za-z0-9_]+)*)/);
       if (!match) fail("Expected a node ID such as A or service_1.");
       const id = match[1];
+      if (groups.has(id))
+        fail(`Connect to a node inside ${id}, not to the group itself.`);
       rest = rest.slice(id.length).trimStart();
       let type = "rect",
         label = id,
@@ -180,7 +230,16 @@ export function parseFlowchart(source) {
           rest = rest.slice(end + close.length).trimStart();
           break;
         }
-      if (!nodes.has(id) || defined) nodes.set(id, { id, label, type });
+      const previous = nodes.get(id),
+        scope = groupStack.at(-1) ?? null;
+      if (defined && previous?.parent && scope && previous.parent !== scope)
+        fail(
+          `Node ${id} is already in ${previous.parent}. Declare it once, then use a bare ID for cross-group references.`,
+        );
+      nodes.set(id, {
+        ...(previous && !defined ? previous : { id, label, type }),
+        parent: previous?.parent ?? scope,
+      });
       return id;
     };
     let from = readNode();
@@ -219,6 +278,21 @@ export function parseFlowchart(source) {
       from = to;
     }
   }
+  if (groupStack.length)
+    throw Error(`Missing end for subgraph ${groupStack.at(-1)}.`);
+  const populated = new Set();
+  for (const node of nodes.values()) {
+    let parent = node.parent;
+    while (parent) {
+      populated.add(parent);
+      parent = groups.get(parent).parent;
+    }
+  }
+  for (const group of groups.values())
+    if (!populated.has(group.id))
+      throw Error(
+        `Subgraph ${group.id} is empty. Add a node or remove the group.`,
+      );
   if (!nodes.size) throw Error("Add at least one node, for example A[Hello].");
   if (nodes.size > 60 || edges.length > 100)
     throw Error(
@@ -228,6 +302,7 @@ export function parseFlowchart(source) {
     direction: m[1] === "TD" ? "TB" : m[1],
     nodes: [...nodes.values()],
     edges,
+    groups: [...groups.values()],
   };
 }
 
@@ -265,7 +340,9 @@ export function wrapText(text, max = 20) {
 }
 
 export function layoutDiagram(model) {
-  const g = new dagre.graphlib.Graph({ multigraph: true });
+  const g = new dagre.graphlib.Graph({ multigraph: true, compound: true });
+  const nodeKey = (id) => `node:${id}`,
+    groupKey = (id) => `group:${id}`;
   g.setGraph({
     rankdir: model.direction,
     nodesep: 38,
@@ -274,6 +351,10 @@ export function layoutDiagram(model) {
     marginy: 26,
   });
   g.setDefaultEdgeLabel(() => ({}));
+  for (const group of model.groups ?? []) {
+    g.setNode(groupKey(group.id), {});
+    if (group.parent) g.setParent(groupKey(group.id), groupKey(group.parent));
+  }
   const prepared = model.nodes.map((n) => {
     const lines = wrapText(n.label, n.type === "diamond" ? 16 : 21);
     let width = 184,
@@ -287,13 +368,14 @@ export function layoutDiagram(model) {
     }
     if (n.type === "cylinder") height += 18;
     const node = { ...n, lines, width, height };
-    g.setNode(n.id, node);
+    g.setNode(nodeKey(n.id), node);
+    if (n.parent) g.setParent(nodeKey(n.id), groupKey(n.parent));
     return node;
   });
   for (const e of model.edges)
     g.setEdge(
-      e.from,
-      e.to,
+      nodeKey(e.from),
+      nodeKey(e.to),
       {
         ...e,
         width: e.label ? Math.max(80, [...e.label].length * 12) : 0,
@@ -305,16 +387,67 @@ export function layoutDiagram(model) {
   dagre.layout(g);
   const nodes = prepared.map((n) => ({
     ...n,
-    x: g.node(n.id).x,
-    y: g.node(n.id).y,
+    x: g.node(nodeKey(n.id)).x,
+    y: g.node(nodeKey(n.id)).y,
   }));
   const edges = model.edges.map((e) => ({
     ...e,
-    ...g.edge({ v: e.from, w: e.to, name: e.id }),
+    ...g.edge({ v: nodeKey(e.from), w: nodeKey(e.to), name: e.id }),
   }));
+  const groups = (model.groups ?? []).map((group) => {
+    const box = g.node(groupKey(group.id));
+    const titleLines = wrapText(
+      group.label,
+      Math.max(6, Math.floor((box.width - 28) / 9)),
+    );
+    return {
+      ...group,
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      titleLines,
+      titleHeight: titleLines.length * 20 + 20,
+    };
+  });
+  // Insert title bands across the layout. A global monotone translation keeps
+  // sibling ordering and edge routes while giving every nested header space.
+  const bandMap = new Map();
+  for (const group of groups) {
+    const y = group.y - group.height / 2,
+      key = `${y}:${group.depth}`;
+    const current = bandMap.get(key);
+    bandMap.set(key, {
+      y,
+      depth: group.depth,
+      height: Math.max(current?.height ?? 0, group.titleHeight),
+    });
+  }
+  const bands = [...bandMap.values()].sort(
+    (a, b) => a.y - b.y || a.depth - b.depth,
+  );
+  const translateY = (y, depth = Infinity) =>
+    y +
+    bands.reduce(
+      (sum, band) =>
+        sum +
+        (band.y < y || (band.y === y && band.depth < depth) ? band.height : 0),
+      0,
+    );
+  for (const node of nodes) node.y = translateY(node.y);
+  for (const edge of edges) {
+    for (const point of edge.points) point.y = translateY(point.y);
+    if (Number.isFinite(edge.y)) edge.y = translateY(edge.y);
+  }
+  for (const group of groups) {
+    const top = translateY(group.y - group.height / 2, group.depth),
+      bottom = translateY(group.y + group.height / 2);
+    group.y = (top + bottom) / 2;
+    group.height = bottom - top;
+  }
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const intersect = (n, p) => {
-    if (!["diamond", "circle"].includes(n.type)) return null;
+    if (!groups.length && !["diamond", "circle"].includes(n.type)) return null;
     const dx = p.x - n.x,
       dy = p.y - n.y,
       rx = n.width / 2,
@@ -322,7 +455,9 @@ export function layoutDiagram(model) {
     const divisor =
       n.type === "diamond"
         ? Math.abs(dx) / rx + Math.abs(dy) / ry
-        : Math.hypot(dx / rx, dy / ry);
+        : n.type === "circle"
+          ? Math.hypot(dx / rx, dy / ry)
+          : Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry);
     return divisor ? { x: n.x + dx / divisor, y: n.y + dy / divisor } : null;
   };
   for (const e of edges) {
@@ -335,8 +470,9 @@ export function layoutDiagram(model) {
     ...model,
     nodes,
     edges,
+    groups,
     width: g.graph().width,
-    height: g.graph().height,
+    height: translateY(g.graph().height),
   };
 }
 
@@ -371,6 +507,13 @@ export function diagramSvg(d, theme = "mint") {
         return `<g>${shape}<text text-anchor="middle" font-size="18" fill="#${t.ink}">${n.lines.map((l, i) => `<tspan x="${n.x}" y="${n.y - (n.lines.length - 1) * 11.5 + i * 23 + 6}">${escapeXml(l)}</tspan>`).join("")}</text></g>`;
       })
       .join("");
+  const containers = (d.groups ?? [])
+    .map((group) => {
+      const x = group.x - group.width / 2,
+        y = group.y - group.height / 2;
+      return `<g><rect x="${x}" y="${y}" width="${group.width}" height="${group.height}" rx="6" fill="none" stroke="#${t.border}" stroke-width="1.3" stroke-dasharray="7 4"/><text font-size="16" font-weight="bold" fill="#${t.ink}" stroke="#${t.paper}" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${group.titleLines.map((line, i) => `<tspan x="${x + 14}" y="${y + 25 + i * 20}">${escapeXml(line)}</tspan>`).join("")}</text></g>`;
+    })
+    .join("");
   const edgePaths = d.edges
     .map(
       (e) =>
@@ -384,5 +527,5 @@ export function diagramSvg(d, theme = "mint") {
         `<g><rect x="${e.x - e.width / 2}" y="${e.y - 15}" width="${e.width}" height="30" rx="5" fill="#${t.paper}"/><text x="${e.x}" y="${e.y + 5}" text-anchor="middle" font-size="15" fill="#${t.ink}">${escapeXml(e.label)}</text></g>`,
     )
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flowchart preview" viewBox="0 0 ${d.width} ${d.height}" style="font-family:Arial,'Microsoft YaHei',sans-serif;background:#${t.paper}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#${t.line}"/></marker></defs>${edgePaths}${shapes}${labels}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flowchart preview" viewBox="0 0 ${d.width} ${d.height}" style="font-family:Arial,'Microsoft YaHei',sans-serif;background:#${t.paper}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#${t.line}"/></marker></defs>${edgePaths}${containers}${shapes}${labels}</svg>`;
 }

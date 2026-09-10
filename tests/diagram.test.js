@@ -114,7 +114,7 @@ test("decision connections meet the diamond outline", () => {
 test("unsupported syntax is rejected instead of dropping content", () => {
   for (const s of [
     "sequenceDiagram\nA->>B: Hi",
-    "flowchart LR\nsubgraph Group\nA-->B\nend",
+    "flowchart LR\nsubgraph Group\nA-->B\nend\nGroup-->C",
     "flowchart LR\nA[Hello]\nstyle A fill:red",
     "flowchart LR\nA[broken",
     "flowchart LR\nA & B --> C",

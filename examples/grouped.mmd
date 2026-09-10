@@ -1,0 +1,16 @@
+flowchart TB
+  subgraph client [Client applications]
+    Web[Web app]
+    Mobile[Mobile app]
+  end
+  subgraph server [应用服务]
+    API[API gateway]
+    subgraph storage [Data services]
+      DB[(Database)]
+      Cache[(Cache)]
+    end
+    API --> DB
+    API -.-> Cache
+  end
+  Web --> API
+  Mobile --> API
