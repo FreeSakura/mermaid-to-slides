@@ -2,6 +2,20 @@
 
 Each iteration links its demand evidence, implementation PR, validation and release. Feature hypotheses are not presented as customer testimonials.
 
+## 0.3.0 — 2026-09-10
+
+Iteration 002: [tracking issue #3](https://github.com/FreeSakura/mermaid-to-slides/issues/3) · [architecture grouping research](docs/research/2026-09-10-architecture-groups.md).
+
+- Support explicit-ID and bare-identifier subgraphs, nested up to four levels, with editable PowerPoint container titles/boundaries.
+- Preserve node membership and cross-group node endpoints. Reserve group header space in the shared SVG/PPT layout.
+- Add a grouped architecture example and a PowerPoint-rendered preview.
+- Reject empty groups, ID/ownership conflicts, missing `end`, local direction and edges to entire groups with explanatory errors.
+- Namespace layout IDs so reserved-looking user node IDs remain safe.
+
+Groups inherit the global direction. Containers are visual boundaries, not Office object groups; moving one does not move its children. Existing manual freeform line adjustment remains unchanged. Full Mermaid compatibility is not claimed.
+
+Validation: nested containment, four directions, cross-group references, native editable container XML, Chinese titles, ID/limit errors and existing project/export regressions. Representative old/new PPTX files opened and rendered in Microsoft PowerPoint; exact checks and deployment records are linked from the iteration PR.
+
 ## 0.2.0 — 2026-09-10
 
 Iteration 001: [tracking issue #1](https://github.com/FreeSakura/mermaid-to-slides/issues/1) · [market/decision note](docs/research/2026-09-10-market-needs.md).

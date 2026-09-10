@@ -50,6 +50,29 @@ export async function exportPptx(
       h: 0,
       objectName: `edge:${e.id}`,
     });
+  for (const group of d.groups ?? []) {
+    slide.addText(group.titleLines.join("\n"), {
+      shape: "rect",
+      x: X(group.x - group.width / 2),
+      y: Y(group.y - group.height / 2),
+      w: group.width * s,
+      h: group.height * s,
+      fontFace: /[^\u0000-\u024f]/.test(group.label)
+        ? "Microsoft YaHei"
+        : "Arial",
+      fontSize: 16 * s * 72,
+      bold: true,
+      color: t.ink,
+      valign: "top",
+      align: "left",
+      margin: [10 * s * 72, 14 * s * 72, 10 * s * 72, 14 * s * 72],
+      paraSpaceAfter: 0,
+      fill: { color: t.paper, transparency: 100 },
+      highlight: t.paper,
+      line: { color: t.border, width: 1, dashType: "dash" },
+      objectName: `group:${group.id}`,
+    });
+  }
   const types = {
     rect: "rect",
     roundRect: "roundRect",
