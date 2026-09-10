@@ -47,6 +47,7 @@ let current = null,
   timer,
   exporting = false;
 let revision = 0,
+  importRequest = 0,
   previousProject = null,
   savingTimer;
 const drafts = createDraftStore(() => window.localStorage);
@@ -261,11 +262,13 @@ $("#file-input").addEventListener("change", async () => {
     file = input.files?.[0];
   input.value = "";
   if (!file) return;
+  const request = ++importRequest;
   const initialRevision = revision;
   try {
     if (file.size > MAX_FILE_BYTES)
       throw Error("File is too large. Choose a file under 256 KB.");
     const text = await file.text();
+    if (request !== importRequest) return;
     if (revision !== initialRevision)
       throw Error(
         "Your editor changed while the file was opening. Open the file again to replace it.",
@@ -273,6 +276,7 @@ $("#file-input").addEventListener("change", async () => {
     const project = importProjectText(text, file.name, snapshot());
     applyProject(project);
   } catch (e) {
+    if (request !== importRequest) return;
     notify(e.message, "error");
   }
 });

@@ -15,7 +15,7 @@ export function validateProject(value) {
     throw Error("Project source must be text under 30,000 characters.");
   if (typeof value.title !== "string" || value.title.length > 90)
     throw Error("Project title must be text under 90 characters.");
-  if (!Object.hasOwn(themes, value.theme))
+  if (typeof value.theme !== "string" || !Object.hasOwn(themes, value.theme))
     throw Error("This project uses an unsupported theme.");
   return {
     format: PROJECT_FORMAT,

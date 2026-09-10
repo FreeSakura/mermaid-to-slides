@@ -40,6 +40,7 @@ test("invalid, oversized and future project inputs fail explicitly", () => {
     "[]",
     JSON.stringify({ ...project, version: 2 }),
     JSON.stringify({ ...project, theme: "__proto__" }),
+    JSON.stringify({ ...project, theme: ["mint"] }),
     JSON.stringify({ ...project, title: 123 }),
     JSON.stringify({ ...project, source: "x".repeat(30001) }),
   ])

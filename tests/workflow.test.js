@@ -152,3 +152,15 @@ test("corrupt or denied storage never blocks editing and export controls", async
     e.dom.window.close();
   }
 });
+
+test("the latest file selection wins even if an earlier read resolves first", async () => {
+  const e = await editor(); let first, second;
+  await e.open({name: "first.mmd", size: 30, text: () => new Promise(resolve => { first = resolve; })});
+  await e.open({name: "second.mmd", size: 30, text: () => new Promise(resolve => { second = resolve; })});
+  first("flowchart LR; First[Old selection]");
+  await new Promise(resolve => setImmediate(resolve));
+  second("flowchart LR; Second[Latest selection]");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(e.$("#source").value.includes("Latest selection"));
+  e.dom.window.close();
+});
