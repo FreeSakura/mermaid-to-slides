@@ -18,7 +18,19 @@ AI tools are good at writing Mermaid. Your teammates still need to change the di
 3. Pick a theme and download the `.pptx`.
 4. Open it in PowerPoint. Click a node to edit its text or formatting. Use **Edit Points** to adjust a connection.
 
-No account, API key or diagram upload. Parsing, layout and export run in your browser. The site serves application assets normally; it contains no analytics, diagram API or remote fonts. Refreshing the page resets your work, so copy the source before leaving.
+No account, API key or diagram upload. Parsing, layout and export run in your browser. The site serves application assets normally; it contains no analytics, diagram API or remote fonts.
+
+## Keep working later (v0.2.0)
+
+- **Open file** imports `.mmd` / `.mermaid` source or a Mermaid to Slides project JSON. Importing source preserves the current title and theme.
+- **Save .mmd** downloads exact source text, including unfinished diagrams.
+- **Save project** downloads a versioned `.mts.json` file containing source, slide title and theme. Open it in another browser or device to continue.
+- **Remember draft on this device** enables local autosave and restores your latest work after reload. This is off by default. **Clear saved draft** removes the saved copy and switches storage off, while leaving the editor unchanged.
+- **Undo replace** restores the previous editor state after opening a file or selecting an example.
+
+Local drafts stay in that browser and site origin, are visible to others using the same browser profile, and may disappear when browser data is cleared. They are not cross-device sync. Export a project file for a durable backup. If storage is blocked or full, the editor stays usable and reports the saving problem. File imports are limited to 256 KB and the existing source-size limit still applies.
+
+[Changelog](CHANGELOG.md) · [Research and iteration policy](docs/ITERATION_POLICY.md)
 
 ## What you get
 
