@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 import { DRAFT_KEY } from "../src/project.js";
+import JSZip from "jszip";
 
 const bundle = build({
   entryPoints: ["src/main.js"],
@@ -154,13 +155,104 @@ test("corrupt or denied storage never blocks editing and export controls", async
 });
 
 test("the latest file selection wins even if an earlier read resolves first", async () => {
-  const e = await editor(); let first, second;
-  await e.open({name: "first.mmd", size: 30, text: () => new Promise(resolve => { first = resolve; })});
-  await e.open({name: "second.mmd", size: 30, text: () => new Promise(resolve => { second = resolve; })});
+  const e = await editor();
+  let first, second;
+  await e.open({
+    name: "first.mmd",
+    size: 30,
+    text: () =>
+      new Promise((resolve) => {
+        first = resolve;
+      }),
+  });
+  await e.open({
+    name: "second.mmd",
+    size: 30,
+    text: () =>
+      new Promise((resolve) => {
+        second = resolve;
+      }),
+  });
   first("flowchart LR; First[Old selection]");
-  await new Promise(resolve => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
   second("flowchart LR; Second[Latest selection]");
-  await new Promise(resolve => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
   assert.ok(e.$("#source").value.includes("Latest selection"));
+  e.dom.window.close();
+});
+
+test("fit settings survive project, draft and undo roundtrips while source stays unchanged", async () => {
+  const e = await editor();
+  e.$('[data-example="grouped"]').click();
+  const source = e.$("#source").value;
+  e.$("#fit-slide").click();
+  assert.equal(e.$("#source").value, source);
+  assert.equal(e.$("#layout-direction").value, "auto");
+  assert.equal(e.$("#layout-spacing").value, "compact");
+  assert.ok(e.$("#layout-summary").textContent.includes("LR"));
+  e.$("#save-project").click();
+  const saved = JSON.parse(await e.downloads[0].text());
+  assert.equal(saved.version, 2);
+  assert.deepEqual(saved.layout, { direction: "auto", spacing: "compact" });
+  e.$("#export").click();
+  for (let i = 0; i < 100 && e.downloads.length < 2; i++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(e.downloads.length, 2);
+  const deck = await JSZip.loadAsync(await e.downloads[1].arrayBuffer());
+  const notes = await deck
+    .file("ppt/notesSlides/notesSlide1.xml")
+    .async("string");
+  assert.ok(notes.includes("Slide direction: LR"));
+  assert.ok(notes.includes("flowchart TB"));
+  assert.ok(notes.includes("spacing: compact"));
+  e.$("#remember-draft").click();
+  const restored = await editor(e.w.localStorage.getItem(DRAFT_KEY));
+  assert.equal(restored.$("#layout-direction").value, "auto");
+  assert.equal(restored.$("#layout-spacing").value, "compact");
+  const legacy = {
+    format: "mermaid-to-slides",
+    version: 1,
+    source: "flowchart TB; A-->B",
+    title: "Legacy",
+    theme: "mint",
+  };
+  await e.open({
+    name: "old.json",
+    size: 200,
+    text: async () => JSON.stringify(legacy),
+  });
+  assert.equal(e.$("#layout-direction").value, "source");
+  e.$("#undo-replace").click();
+  assert.equal(e.$("#source").value, source);
+  assert.equal(e.$("#layout-direction").value, "auto");
+  await e.open({
+    name: "bad.json",
+    size: 200,
+    text: async () =>
+      JSON.stringify({
+        ...saved,
+        layout: { direction: "sideways", spacing: "compact" },
+      }),
+  });
+  assert.equal(e.$("#source").value, source);
+  assert.equal(e.$("#layout-direction").value, "auto");
+  e.dom.window.close();
+  restored.dom.window.close();
+});
+test("legacy device drafts migrate without losing source or title", async () => {
+  const legacy = {
+    format: "mermaid-to-slides",
+    version: 1,
+    source: "flowchart RL; Old[Legacy]",
+    title: "Old project",
+    theme: "blue",
+  };
+  const e = await editor(JSON.stringify(legacy));
+  assert.equal(e.$("#source").value, legacy.source);
+  assert.equal(e.$("#title").value, legacy.title);
+  assert.equal(e.$("#layout-direction").value, "source");
+  assert.equal(e.$("#layout-spacing").value, "comfortable");
+  e.w.dispatchEvent(new e.w.Event("pagehide"));
+  assert.equal(JSON.parse(e.w.localStorage.getItem(DRAFT_KEY)).version, 2);
   e.dom.window.close();
 });

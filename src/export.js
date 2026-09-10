@@ -127,7 +127,7 @@ export async function exportPptx(
         objectName: `label:${e.id}`,
       });
   slide.addNotes(
-    `Created with Mermaid to Slides. Nodes and freeform lines are editable. Lines do not automatically reroute when nodes move.\n\nMermaid source:\n${source}`,
+    `Created with Mermaid to Slides. Nodes and freeform lines are editable. Lines do not automatically reroute when nodes move.\nSlide direction: ${d.direction}; selected mode: ${d.layoutOptions?.direction ?? "source"}; spacing: ${d.layoutOptions?.spacing ?? "comfortable"}; source direction: ${d.sourceDirection ?? d.direction}.\n\nMermaid source:\n${source}`,
   );
   const raw = await pptx.write({ outputType: "uint8array" }),
     zip = await JSZip.loadAsync(raw);

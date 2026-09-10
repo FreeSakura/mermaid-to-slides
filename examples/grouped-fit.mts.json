@@ -1,0 +1,11 @@
+{
+  "format": "mermaid-to-slides",
+  "version": 2,
+  "source": "flowchart TB\n  subgraph client [Client applications]\n    Web[Web app]\n    Mobile[Mobile app]\n  end\n  subgraph server [应用服务]\n    API[API gateway]\n    subgraph storage [Data services]\n      DB[(Database)]\n      Cache[(Cache)]\n    end\n    API --> DB\n    API -.-> Cache\n  end\n  Web --> API\n  Mobile --> API",
+  "title": "Application boundaries",
+  "theme": "mint",
+  "layout": {
+    "direction": "auto",
+    "spacing": "compact"
+  }
+}

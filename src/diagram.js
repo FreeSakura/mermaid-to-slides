@@ -39,6 +39,47 @@ export function slideMetrics(d) {
     fontSize: 18 * scale * 72,
   };
 }
+
+export function normalizeLayout(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw Error("Slide layout settings must be an object.");
+  const direction = value.direction ?? "source",
+    spacing = value.spacing ?? "comfortable";
+  if (!["source", "auto", "LR", "RL", "TB", "BT"].includes(direction))
+    throw Error(
+      "Choose source, best fit, LR, RL, TB or BT for the slide direction.",
+    );
+  if (!["comfortable", "compact"].includes(spacing))
+    throw Error("Choose comfortable or compact spacing.");
+  return { direction, spacing };
+}
+
+export function planDiagram(source, options) {
+  const layoutOptions = normalizeLayout(options),
+    model = parseFlowchart(source);
+  const directions =
+    layoutOptions.direction === "auto"
+      ? [
+          model.direction,
+          ...["LR", "TB", "RL", "BT"].filter((d) => d !== model.direction),
+        ]
+      : [
+          layoutOptions.direction === "source"
+            ? model.direction
+            : layoutOptions.direction,
+        ];
+  let best,
+    bestSize = -Infinity;
+  for (const direction of directions) {
+    const candidate = layoutDiagram({ ...model, direction }, layoutOptions);
+    const size = slideMetrics(candidate).fontSize;
+    if (size > bestSize + 0.0001) {
+      best = candidate;
+      bestSize = size;
+    }
+  }
+  return { ...best, layoutOptions, sourceDirection: model.direction };
+}
 export const examples = {
   grouped: {
     name: "Grouped architecture",
@@ -339,14 +380,15 @@ export function wrapText(text, max = 20) {
   return lines;
 }
 
-export function layoutDiagram(model) {
+export function layoutDiagram(model, options) {
+  const { spacing } = normalizeLayout(options);
   const g = new dagre.graphlib.Graph({ multigraph: true, compound: true });
   const nodeKey = (id) => `node:${id}`,
     groupKey = (id) => `group:${id}`;
   g.setGraph({
     rankdir: model.direction,
-    nodesep: 38,
-    ranksep: 78,
+    nodesep: spacing === "compact" ? 24 : 38,
+    ranksep: spacing === "compact" ? 42 : 78,
     marginx: 26,
     marginy: 26,
   });
